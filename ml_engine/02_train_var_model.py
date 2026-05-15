@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -12,6 +13,13 @@ import pandas as pd
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import adfuller, grangercausalitytests
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_PATH = BASE_DIR / "shockwave_training_data.csv"
@@ -33,14 +41,14 @@ def adf_pvalue(series: pd.Series) -> float:
 
 def prepare_stationary_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, dict[str, float]]:
     pvalues = {column: adf_pvalue(df[column]) for column in df.columns}
-    print("ADF p-values:", pvalues)
+    logger.info("ADF p-values: %s", pvalues)
 
     needs_difference = any(pvalue > 0.05 for pvalue in pvalues.values())
     if not needs_difference:
         return df.copy(), False, pvalues
 
     stationary_df = df.diff().dropna()
-    print("Applied first differencing because at least one series failed stationarity.")
+    logger.info("Applied first differencing because at least one series failed stationarity.")
     return stationary_df, True, pvalues
 
 
@@ -65,8 +73,7 @@ def run_pairwise_granger_tests(df: pd.DataFrame, max_lag: int = 6) -> pd.DataFra
                 )
 
     summary_df = pd.DataFrame(all_rows)
-    print("Granger causality summary:")
-    print(summary_df.to_string(index=False))
+    logger.info("Granger causality summary:\n%s", summary_df.to_string(index=False))
     return summary_df
 
 
@@ -91,7 +98,7 @@ def train_var_model(
 ) -> tuple[Any, int, dict[str, Any]]:
     model = VAR(df)
     selected_lag, lag_selection = select_var_lag(model, max_var_lag=max_var_lag)
-    print(f"Selected VAR lag order: {selected_lag}")
+    logger.info("Selected VAR lag order: %s", selected_lag)
 
     fitted_model = model.fit(selected_lag)
     irf_periods = 24
@@ -105,7 +112,7 @@ def train_var_model(
         "irf_periods": irf_periods,
     }
     if print_summary:
-        print(fitted_model.summary())
+        logger.info("\n%s", fitted_model.summary())
     return fitted_model, selected_lag, {"lag_metadata": lag_metadata, "irf": irf}
 
 
@@ -228,8 +235,7 @@ def main() -> None:
         max_var_lag=MAX_VAR_LAG,
     )
     backtest_predictions.to_csv(BACKTEST_PREDICTIONS_PATH, index=False)
-    print("Backtest summary:")
-    print(pd.DataFrame(backtest_report["metrics"]).T.to_string())
+    logger.info("Backtest summary:\n%s", pd.DataFrame(backtest_report["metrics"]).T.to_string())
 
     stationary_df, is_differenced, adf_summary = prepare_stationary_dataframe(raw_df)
     granger_summary = run_pairwise_granger_tests(stationary_df, max_lag=MAX_GRANGER_LAG)
@@ -263,9 +269,9 @@ def main() -> None:
     with BACKTEST_REPORT_PATH.open("w", encoding="utf-8") as report_file:
         json.dump(backtest_report, report_file, indent=2)
 
-    print(f"Saved VAR model bundle to {MODEL_PATH}")
-    print(f"Saved backtest report to {BACKTEST_REPORT_PATH}")
-    print(f"Saved backtest predictions to {BACKTEST_PREDICTIONS_PATH}")
+    logger.info("Saved VAR model bundle to %s", MODEL_PATH)
+    logger.info("Saved backtest report to %s", BACKTEST_REPORT_PATH)
+    logger.info("Saved backtest predictions to %s", BACKTEST_PREDICTIONS_PATH)
 
 
 if __name__ == "__main__":
