@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from data_pipeline import build_real_local_targets, build_synthetic_local_targets
+from data_pipeline import build_real_local_targets, build_synthetic_local_targets, handle_outliers
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -133,6 +133,7 @@ def main() -> None:
         source_map["target_mode"] = "official_local_files"
 
     training_df = global_df.join(local_df, how="inner").sort_index().dropna()
+    training_df = handle_outliers(training_df)
     training_df.index.name = "Date"
     training_df.to_csv(OUTPUT_PATH)
 
