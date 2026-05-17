@@ -52,6 +52,14 @@ def prepare_stationary_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, 
     return stationary_df, True, pvalues
 
 
+def scale_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
+    """Scale dataframe to zero mean and unit variance."""
+    means = df.mean()
+    stds = df.std(ddof=0).replace(0, 1.0)
+    scaled_df = (df - means) / stds
+    return scaled_df, means, stds
+
+
 def run_pairwise_granger_tests(df: pd.DataFrame, max_lag: int = 6) -> pd.DataFrame:
     safe_max_lag = min(max_lag, max(1, len(df) // 5))
     all_rows: list[dict[str, Any]] = []
@@ -165,8 +173,10 @@ def build_backtest_report(
                 f"Rows available: {len(stationary_train)}."
             )
 
+        scaled_train, train_means, train_stds = scale_dataframe(stationary_train)
+
         var_model, selected_lag, _ = train_var_model(
-            stationary_train,
+            scaled_train,
             max_var_lag=max_var_lag,
             print_summary=False,
         )
@@ -177,6 +187,8 @@ def build_backtest_report(
             train_columns=columns,
             is_differenced=is_differenced,
             train_raw_df=train_raw,
+            means=train_means,
+            stds=train_stds,
         )
 
         row: dict[str, Any] = {
@@ -238,9 +250,11 @@ def main() -> None:
     logger.info("Backtest summary:\n%s", pd.DataFrame(backtest_report["metrics"]).T.to_string())
 
     stationary_df, is_differenced, adf_summary = prepare_stationary_dataframe(raw_df)
-    granger_summary = run_pairwise_granger_tests(stationary_df, max_lag=MAX_GRANGER_LAG)
+    scaled_df, train_means, train_stds = scale_dataframe(stationary_df)
+
+    granger_summary = run_pairwise_granger_tests(scaled_df, max_lag=MAX_GRANGER_LAG)
     var_model, selected_lag, model_extras = train_var_model(
-        stationary_df,
+        scaled_df,
         max_var_lag=MAX_VAR_LAG,
     )
 
@@ -261,8 +275,8 @@ def main() -> None:
         "leading_relationships": leading_relationships,
         "lag_metadata": model_extras["lag_metadata"],
         "backtest_report": backtest_report,
-        "train_means": {str(k): float(v) for k, v in stationary_df.mean().to_dict().items()},
-        "train_std": {str(k): float(v) for k, v in stationary_df.std(ddof=0).replace(0, 1.0).to_dict().items()},
+        "train_means": {str(k): float(v) for k, v in train_means.to_dict().items()},
+        "train_std": {str(k): float(v) for k, v in train_stds.to_dict().items()},
         "model_status": "ready",
     }
     joblib.dump(model_bundle, MODEL_PATH)
@@ -275,4 +289,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    main()
+n__":
     main()
