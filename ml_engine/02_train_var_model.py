@@ -145,6 +145,17 @@ def safe_mape(actual: pd.Series, predicted: pd.Series) -> float:
     return float(percentage_error.mean() * 100.0)
 
 
+def directional_accuracy(actual: pd.Series, predicted: pd.Series, previous_actual: pd.Series) -> float:
+    """Calculate Mean Directional Accuracy (MDA)."""
+    actual_direction = np.sign(actual - previous_actual)
+    predicted_direction = np.sign(predicted - previous_actual)
+    correct_directions = (actual_direction == predicted_direction).sum()
+    total = len(actual)
+    if total == 0:
+        return float("nan")
+    return float(correct_directions / total * 100.0)
+
+
 def build_backtest_report(
     raw_df: pd.DataFrame,
     *,
@@ -209,12 +220,28 @@ def build_backtest_report(
     for column in TARGET_VARIABLES:
         actual = predictions_df[f"actual_{column}"]
         predicted = predictions_df[f"predicted_{column}"]
+        
+        # Calculate directional accuracy
+        start_idx = len(raw_df) - backtest_steps
+        previous_actual_list = []
+        for i in range(start_idx, len(raw_df)):
+            previous_actual_list.append(raw_df[column].iloc[i - 1])
+        previous_actual = pd.Series(previous_actual_list, index=actual.index)
+        mda = directional_accuracy(actual, predicted, previous_actual)
+        
+        # Calculate R-squared
+        ss_res = ((actual - predicted) ** 2).sum()
+        ss_tot = ((actual - actual.mean()) ** 2).sum()
+        r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else float("nan")
+
         errors = actual - predicted
         rmse = math.sqrt(float((errors.pow(2)).mean()))
         metrics[column] = {
             "mae": round(float(errors.abs().mean()), 4),
             "rmse": round(rmse, 4),
             "mape": round(safe_mape(actual, predicted), 4),
+            "mda": round(mda, 4),
+            "r_squared": round(float(r_squared), 4),
         }
 
     report = {
