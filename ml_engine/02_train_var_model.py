@@ -89,11 +89,17 @@ def select_var_lag(model: VAR, max_var_lag: int) -> tuple[int, Any]:
     safe_max_var_lag = min(max_var_lag, max(2, len(model.endog) // 4))
     lag_selection = model.select_order(maxlags=safe_max_var_lag)
 
-    selected_lag = lag_selection.aic
-    if selected_lag is None:
-        selected_lag = lag_selection.bic
-    if selected_lag is None:
-        raise ValueError("Unable to determine VAR lag order from AIC/BIC.")
+    # Voting mechanism across criteria to avoid overfitting
+    votes = [lag_selection.aic, lag_selection.bic, lag_selection.hqic, lag_selection.fpe]
+    valid_votes = [v for v in votes if v is not None and v > 0]
+    
+    if not valid_votes:
+        raise ValueError("Unable to determine VAR lag order from criteria.")
+    
+    # Select the most frequently voted lag, fallback to minimum if tie
+    from collections import Counter
+    vote_counts = Counter(valid_votes)
+    selected_lag = max(vote_counts, key=vote_counts.get)
 
     return max(1, int(selected_lag)), lag_selection
 
