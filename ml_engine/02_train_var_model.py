@@ -13,6 +13,8 @@ import pandas as pd
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import adfuller, grangercausalitytests
 
+from data_pipeline import handle_outliers
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -272,6 +274,8 @@ def main() -> None:
         raise ValueError(
             f"Training data must contain at least {MIN_TRAINING_ROWS} rows, got {len(raw_df)}."
         )
+    
+    raw_df = handle_outliers(raw_df)
 
     backtest_report, backtest_predictions = build_backtest_report(
         raw_df,
