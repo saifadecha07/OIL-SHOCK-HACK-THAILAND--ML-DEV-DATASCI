@@ -9,14 +9,18 @@
   "test_window_end": "2026-03-01",
   "metrics": {
     "doeb_import_volume": {
-      "mae": 2.7801,
-      "rmse": 3.0557,
-      "mape": 2.954
+      "mae": 2.9,
+      "rmse": 3.2428,
+      "mape": 3.068,
+      "mda": 66.6667,
+      "r_squared": -0.1258
     },
     "doeb_diesel_sales": {
-      "mae": 1.1174,
-      "rmse": 1.4241,
-      "mape": 1.2043
+      "mae": 1.0278,
+      "rmse": 1.4779,
+      "mape": 1.1031,
+      "mda": 100.0,
+      "r_squared": 0.0846
     }
   }
 }

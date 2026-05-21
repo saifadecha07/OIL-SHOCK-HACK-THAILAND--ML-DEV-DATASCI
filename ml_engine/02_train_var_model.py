@@ -138,10 +138,15 @@ def reconstruct_level_forecast(
     train_columns: list[str],
     is_differenced: bool,
     train_raw_df: pd.DataFrame,
+    means: pd.Series,
+    stds: pd.Series,
 ) -> pd.Series:
-    level_forecast = pd.Series(forecast_row, index=train_columns, dtype=float)
+    scaled_forecast = pd.Series(forecast_row, index=train_columns, dtype=float)
+    unscaled_forecast = (scaled_forecast * stds) + means
     if is_differenced:
-        level_forecast = level_forecast.add(train_raw_df[train_columns].iloc[-1], fill_value=0.0)
+        level_forecast = unscaled_forecast.add(train_raw_df[train_columns].iloc[-1], fill_value=0.0)
+    else:
+        level_forecast = unscaled_forecast
     return level_forecast
 
 
@@ -326,6 +331,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
-n__":
     main()
