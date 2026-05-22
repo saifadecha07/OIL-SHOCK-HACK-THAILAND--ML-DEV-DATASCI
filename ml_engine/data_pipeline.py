@@ -6,20 +6,21 @@ import numpy as np
 import pandas as pd
 
 
-def handle_outliers(df: pd.DataFrame, threshold: float = 3.0) -> pd.DataFrame:
+def handle_outliers(df: pd.DataFrame, threshold: float = 1.5) -> pd.DataFrame:
     """
-    Apply robust outlier capping based on Z-scores to ensure extreme values 
-    do not distort the VAR model's structural equations.
+    Cap outliers using Tukey IQR fences (median/IQR are robust to the outliers
+    being detected, unlike mean/std which are distorted by the same extremes).
+    threshold=1.5 is the standard Tukey inner fence.
     """
     df_cleaned = df.copy()
     for col in df_cleaned.columns:
         if pd.api.types.is_numeric_dtype(df_cleaned[col]):
-            mean = df_cleaned[col].mean()
-            std = df_cleaned[col].std(ddof=0)
-            if std > 0:
-                z_scores = (df_cleaned[col] - mean) / std
-                lower_bound = mean - threshold * std
-                upper_bound = mean + threshold * std
+            q1 = df_cleaned[col].quantile(0.25)
+            q3 = df_cleaned[col].quantile(0.75)
+            iqr = q3 - q1
+            if iqr > 0:
+                lower_bound = q1 - threshold * iqr
+                upper_bound = q3 + threshold * iqr
                 df_cleaned[col] = df_cleaned[col].clip(lower=lower_bound, upper=upper_bound)
     return df_cleaned
 
