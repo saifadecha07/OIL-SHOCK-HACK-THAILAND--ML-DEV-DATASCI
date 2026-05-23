@@ -188,6 +188,7 @@ def build_backtest_report(
     start_idx = len(raw_df) - backtest_steps
     for test_idx in range(start_idx, len(raw_df)):
         train_raw = raw_df.iloc[:test_idx].copy()
+        train_raw = handle_outliers(train_raw)
         actual_row = raw_df.iloc[test_idx].copy()
 
         stationary_train, is_differenced, _ = prepare_stationary_dataframe(train_raw)
@@ -280,8 +281,6 @@ def main() -> None:
             f"Training data must contain at least {MIN_TRAINING_ROWS} rows, got {len(raw_df)}."
         )
     
-    raw_df = handle_outliers(raw_df)
-
     backtest_report, backtest_predictions = build_backtest_report(
         raw_df,
         backtest_steps=BACKTEST_STEPS,
@@ -291,6 +290,7 @@ def main() -> None:
     backtest_predictions.to_csv(BACKTEST_PREDICTIONS_PATH, index=False)
     logger.info("Backtest summary:\n%s", pd.DataFrame(backtest_report["metrics"]).T.to_string())
 
+    raw_df = handle_outliers(raw_df)
     stationary_df, is_differenced, adf_summary = prepare_stationary_dataframe(raw_df)
     scaled_df, train_means, train_stds = scale_dataframe(stationary_df)
 
