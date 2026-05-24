@@ -60,6 +60,9 @@ class VARModelService:
         self.train_columns = list(
             self.model_bundle.get("train_columns", getattr(self.var_results, "names", []))
         )
+        self.train_means = {
+            key: float(value) for key, value in self.model_bundle.get("train_means", {}).items()
+        }
         self.train_std = {
             key: float(value) for key, value in self.model_bundle.get("train_std", {}).items()
         }
@@ -102,6 +105,7 @@ class VARModelService:
             self.import_column,
             self.diesel_column,
         ]
+        self.train_means = {column: 0.0 for column in self.train_columns}
         self.train_std = {column: 1.0 for column in self.train_columns}
         self.leading_indicators = [self.eia_column, self.natgas_column]
         self.target_variables = [self.import_column, self.diesel_column]
@@ -169,9 +173,13 @@ class VARModelService:
             columns=self.train_columns,
         )
 
+        # Reverse StandardScaler: forecast is in scaled space (model space), convert to raw units.
+        means_series = pd.Series({col: self.train_means.get(col, 0.0) for col in self.train_columns})
+        stds_series = pd.Series({col: self.train_std.get(col, 1.0) for col in self.train_columns})
+        forecast_df = forecast_df.multiply(stds_series).add(means_series)
+
         # When the model was trained on differences, statsmodels forecasts future
-        # deltas. To get back to level forecasts, cumulatively add them on top of
-        # the last observed raw row.
+        # deltas (already unscaled above). Cumsum + last observed level = level forecast.
         if self.is_differenced:
             if self.raw_history is None:
                 raise ValueError(
