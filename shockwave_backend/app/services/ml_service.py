@@ -235,7 +235,7 @@ class VARModelService:
 
             impulse_idx = self.train_columns.index(impulse_column)
             model_scale = self.train_std.get(impulse_column, 1.0)
-            scaled_delta = raw_delta if not self.is_differenced else raw_delta / model_scale
+            scaled_delta = raw_delta / model_scale
 
             for response_idx, response_column in enumerate(self.train_columns):
                 response_frame[response_column] += irf_array[:, response_idx, impulse_idx] * scaled_delta
